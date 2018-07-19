@@ -68,6 +68,8 @@ $RestrictNullSessAccess = $(ss -Pattern "RestrictNullSessAccess=4,(.+)" secedit.
 $ForceGuest = $(ss -Pattern "ForceGuest=4,(.+)" secedit.txt).Matches.Groups[1].value
 $ObCaseInsensitive = $(ss -Pattern "ObCaseInsensitive=4,(.+)" secedit.txt).Matches.Groups[1].value
 $ProtectionMode = $(ss -Pattern "ProtectionMode=4,(.+)" secedit.txt).Matches.Groups[1].value
+$CachedLogonCount = [int]$(ss -Pattern "cachedlogonscount;(.+)" miscReg.txt).Matches.Groups[1].value
+
 ############################################################################################################################
 
 
@@ -364,6 +366,14 @@ Il est recommandé d’activer la GPO suivante :
 Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\System objects: Strengthen default permissions of internal system objects (e.g. Symbolic Links)
 MACHINE\System\CurrentControlSet\Control\Session Manager\ProtectionMode=$ProtectionMode"
 if($ProtectionMode -eq 1){"CONFORME"}
+else{"NON CONFORME"}
+
+"
+Nombre d'ouvertures de session précédentes dans le cache
+Il est recommandé de regler à 4 la mise en cache des sessions.
+Cache Logons Count;HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\cachedlogonscount=$CachedLogonCount
+"
+if($CachedLogonCount -lt 5){"CONFORME"}
 else{"NON CONFORME"}
 
 "
