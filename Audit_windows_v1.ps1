@@ -7,17 +7,7 @@ Set-Alias ss Select-String
 
 
 $onAudit
-do {
-$onAudit = Read-Host -Prompt "Êtes-vous sur l'ordinateur/serveur à audité ? Y/N"
-}while($onAudit -ne "Y" -and $onAudit -ne "N") 
 
-if($onAudit = "Y"){
-$excscript = Read-Host -Prompt "Voulez vous faire tourner le script d'extraction de conf ? Y/N"
-
-if($excscript = "Y"){
-./audit_config_win.bat
-}
-}
 $version = (ss -Pattern "version :(.+)" sysInfos.txt).Matches.groups[1].value
 $hote = $(ss -Pattern "Nom de l'h�te:( +)(.+)" systeminfo.txt).Matches.Groups[2].value
 $OS = $(ss -Pattern "Nom du syst�me d'exploitation:( +)(.+)" systeminfo.txt).Matches.Groups[2].value
@@ -29,13 +19,16 @@ $isFWenDom = $(ss -Pattern "HKLM\\SYSTEM\\CurrentControlSet\\Services\\SharedAcc
 $isFWenHo = $(ss -Pattern "HKLM\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\StandardProfile\\EnableFirewall;(.+)" *).Matches.Groups[1].value
 $AntiVirusProduct = Get-WmiObject -Namespace root\SecurityCenter2 -Class AntiVirusProduct
 #isWinrmEn vérifie que Winrm est activé pour l'envoie de logs
-$isWinrmEn = $(ss -Pattern "WinRM(	+)(.+)(	+)(.+)" services.txt).Matches.Groups[4].value
-$winrmMode = $(ss -Pattern "WinRM(	+)(.+)(	+)(.+)" services.txt).Matches.Groups[2].value
+$isWinrmEn = $(ss -Pattern "WinRM(  +)(.+)( +)(.+)" services.txt).Matches.Groups[4].value
+$winrmMode = $(ss -Pattern "WinRM(  +)(.+)( +)(.+)" services.txt).Matches.Groups[2].value
 #Password policy
 $passwdHistorySize = [int]$(ss -Pattern "PasswordHistorySize = ([0-9]+)" secedit.txt).Matches.Groups[1].value
 $maximumPasswdAge = [int]$(ss -Pattern "MaximumPasswordAge = ([0-9]+)" secedit.txt).Matches.Groups[1].value
 $minimumPasswdAge = [int]$(ss -Pattern "MinimumPasswordAge = ([0-9]+)" secedit.txt).Matches.Groups[1].value
 $minimumPasswdLength = [int]$(ss -Pattern "MinimumPasswordLength = ([0-9]+)" secedit.txt).Matches.Groups[1].value
+#Account Lockout Policy
+$LockoutDuration = [int]$(ss -Pattern "LockoutDuration = ([0-9]+)" secedit.txt).Matches.Groups[1].value
+$LockoutBadCount = [int]$(ss -Pattern "LockoutBadCount = ([0-9]+)" secedit.txt).Matches.Groups[1].value
 #Admin approval
 $adminApproval = [int]$(ss -Pattern "ConsentPromptBehaviorAdmin=4,([0-9]+)" secedit.txt).Matches.Groups[1].value
 #Installation d'application
@@ -108,13 +101,12 @@ Winrm est $isWinrmEn, en mode $winrmMode"
 
 "
 Password policy :
-
 Historique des mots de passe : $passwdHistorysize" 
 if($passwdHistorySize -lt 24){"Non conforme, le CIS recommande un historique de mdp de 24 ou plus" }
 else{"Conforme"}
 
 "Durée de vie des mot de passes : $maximumPasswdAge"
-if($maximumPasswdAge -lt 60 -and -not 0){"Non conforme, le CIS recommande de changer de mot de passe tous les 90j ou moins" }
+if(-Not($maximumPasswdAge -lt 60 -and -not 0)){"Non conforme, le CIS recommande de changer de mot de passe tous les 90j ou moins" }
 else{"Conforme"}
 
 "Durée d’utilisation minimum d’un mot de passe : $minimumPasswdAge"
@@ -126,6 +118,14 @@ if($minimumPasswdLength -lt 14 -and $minimumPasswdLength -gt 7) {"Conformité pa
 elseif($minimumPasswdLength -lt 14){"Non conforme, le CIS recommande une taille de mot de passe de plus de 14 caractère" }
 else{"Conforme"}
 
+"
+Account Lockout Policy:
+Durée de verrouillage des comptes : $LockoutDuration"
+if($LockoutDuration -lt 15){"Non conforme, le CIS recommande de verrouiller le compte pour 15 minutes ou plus" }
+else{"Conforme"}
+"Seuil de verrouillage de comptes: $LockoutBadCount"
+if(-Not($LockoutBadCount -lt 10 -and -not 0)){"Non conforme, le CIS recommande de verrouiller le compte au bout de 10 tentatives ou moins, mais pas 0" }
+else{"Conforme"}
 #Rajouter :
 #dans secedit.txt PasswordComplexity = 1
 
@@ -334,7 +334,6 @@ Accès anonymes aux répertoires de partage
 Cette GPO définit la liste de répertoires accessible anonymement.
 Il est recommandé d’initialiser la GPO suivante à None :
 Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network access: Shares that can be accessed anonymously
-
 Il est recommandé d’activer la GPO suivante :
 Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network access: Restrict anonymous access to Named Pipes and Shares
 MACHINE\System\CurrentControlSet\Services\LanManServer\Parameters\RestrictNullSessAccess=$RestrictNullSessAccess"
